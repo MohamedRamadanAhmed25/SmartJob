@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "restore SmartJob.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "restore",
+        "${workspaceFolder}/SmartJob.API/SmartJob.API.csproj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DOTNET_CLI_HOME": "${workspaceFolder}/.dotnet"
+        }
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build SmartJob.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/SmartJob.API/SmartJob.API.csproj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DOTNET_CLI_HOME": "${workspaceFolder}/.dotnet"
+        }
+      },
+      "dependsOn": "restore SmartJob.API",
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "run SmartJob.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/SmartJob.API/SmartJob.API.csproj",
+        "--launch-profile",
+        "https"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ASPNETCORE_ENVIRONMENT": "Development",
+          "DOTNET_CLI_HOME": "${workspaceFolder}/.dotnet"
+        }
+      },
+      "dependsOn": "restore SmartJob.API",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "watch SmartJob.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "watch",
+        "--project",
+        "${workspaceFolder}/SmartJob.API/SmartJob.API.csproj",
+        "run",
+        "--launch-profile",
+        "https"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ASPNETCORE_ENVIRONMENT": "Development",
+          "DOTNET_CLI_HOME": "${workspaceFolder}/.dotnet"
+        }
+      },
+      "problemMatcher": "$msCompile",
+      "isBackground": true
+    }
+  ]
+}
