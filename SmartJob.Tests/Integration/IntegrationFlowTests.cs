@@ -16,6 +16,8 @@ public class IntegrationFlowTests : IClassFixture<WebApplicationFactory<Program>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
+    private readonly System.Text.Json.JsonSerializerOptions _jsonOptions;
+
     public IntegrationFlowTests(WebApplicationFactory<Program> factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
@@ -29,6 +31,12 @@ public class IntegrationFlowTests : IClassFixture<WebApplicationFactory<Program>
                 }!);
             });
         });
+
+        _jsonOptions = new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
     }
 
     [Fact]
@@ -52,7 +60,7 @@ public class IntegrationFlowTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert - Register
         registerResponse.IsSuccessStatusCode.Should().BeTrue();
-        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>(_jsonOptions);
         tokenResponse.Should().NotBeNull();
         tokenResponse!.AccessToken.Should().NotBeNullOrEmpty();
 
@@ -79,7 +87,7 @@ public class IntegrationFlowTests : IClassFixture<WebApplicationFactory<Program>
             throw new Exception($"Post Job failed with {postJobResponse.StatusCode}. Body: {body}");
         }
         
-        var createdJob = await postJobResponse.Content.ReadFromJsonAsync<JobDto>();
+        var createdJob = await postJobResponse.Content.ReadFromJsonAsync<JobDto>(_jsonOptions);
         createdJob.Should().NotBeNull();
         createdJob!.Title.Should().Be("Senior Dev");
         createdJob.EmployerName.Should().Be("Tech Corp");

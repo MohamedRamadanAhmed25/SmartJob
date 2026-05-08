@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -67,7 +68,14 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile).Assembly);
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(opts =>
+    {
+        // Accept enums as strings (e.g. "Seeker", "Employer", "FullTime")
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Ignore null values in responses to reduce payload size
+        opts.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -110,9 +118,26 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
+        // Allow all origins for REST endpoints
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
+    });
+
+    // For SignalR: must use specific origins if AllowCredentials is needed
+    options.AddPolicy("SignalRPolicy", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://localhost:4200",
+                "http://localhost:8080",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+              )
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -155,33 +180,52 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+
+
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // dbContext.Database.EnsureCreated();
-    // Using migrations instead - Run 'dotnet ef database update' to apply.
+//    // dbContext.Database.EnsureCreated();
+//    // Using migrations instead - Run 'dotnet ef database update' to apply.
+        //dbContext.Database.Migrate();
 }
+
+
+// Ensure wwwroot/uploads directories exist
+var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+Directory.CreateDirectory(Path.Combine(uploadsRoot, "avatars"));
+Directory.CreateDirectory(Path.Combine(uploadsRoot, "resumes"));
 
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+//app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+//if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+//{
+app.UseSwagger();
     app.UseSwaggerUI();
-}
+    app.Environment.IsDevelopment();
+//}
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRateLimiter();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/", () => Results.Redirect("/swagger"));
+
 app.MapControllers();
-app.MapHub<SmartJob.API.Hubs.ChatHub>("/hubs/chat");
-app.MapHub<SmartJob.API.Hubs.NotificationsHub>("/hubs/notifications");
+app.MapHub<SmartJob.API.Hubs.ChatHub>("/hubs/chat").RequireCors("SignalRPolicy");
+app.MapHub<SmartJob.API.Hubs.NotificationsHub>("/hubs/notifications").RequireCors("SignalRPolicy");
 
 app.Run();
-
+//app.UseHttpsRedirection();
+//builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddSwaggerGen();
 public partial class Program { }
