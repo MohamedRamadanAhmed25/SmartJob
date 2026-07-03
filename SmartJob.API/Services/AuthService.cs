@@ -38,8 +38,12 @@ public class AuthService : IAuthService
 
         ValidateRoleSpecificRegistration(request);
 
+        // Generate ID manually to fix the Profile-Link issue
+        var newUserId = Guid.NewGuid();
+
         var user = new User
         {
+            Id = newUserId,
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Role = request.Role,
@@ -53,7 +57,7 @@ public class AuthService : IAuthService
         {
             user.SeekerProfile = new SeekerProfile
             {
-                Id = user.Id,
+                Id = newUserId, // Matches User.Id
                 Skills = request.Skills?.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new(),
                 ExperienceYears = request.ExperienceYears ?? 0,
                 EducationLevel = request.EducationLevel ?? EducationLevel.Bachelor,
@@ -65,7 +69,7 @@ public class AuthService : IAuthService
         {
             user.EmployerProfile = new EmployerProfile
             {
-                Id = user.Id,
+                Id = newUserId, // Matches User.Id
                 CompanyName = request.CompanyName!.Trim(),
                 CompanySize = request.CompanySize ?? CompanySize.Small,
                 Industry = request.Industry?.Trim(),

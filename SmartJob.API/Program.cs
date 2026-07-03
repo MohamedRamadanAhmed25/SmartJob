@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.OpenApi.Models;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -11,7 +12,7 @@ using SmartJob.API.Mappings;
 using SmartJob.API.Middleware;
 using SmartJob.API.Options;
 using SmartJob.API.Services;
-
+using SmartJob.API.AI.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -35,7 +36,7 @@ if (string.IsNullOrEmpty(fileStorageOptions.RootPath))
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? new JwtOptions { Key = "TEST_LOCAL_KEY_SECURE_RANDOM_123456", Issuer = "Test", Audience = "Test" };
 
-if (string.IsNullOrWhiteSpace(jwtOptions.Key)) 
+if (string.IsNullOrWhiteSpace(jwtOptions.Key))
 {
     jwtOptions.Key = "TEST_LOCAL_KEY_SECURE_RANDOM_123456";
 }
@@ -61,6 +62,15 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
+
+builder.Services.AddHttpClient("AiServiceClient", client =>
+{
+    var aiBaseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000/";
+    client.BaseAddress = new Uri(aiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IAiService, AiService>();
+
 builder.Services.AddScoped<IAIMatchService, AIMatchService>();
 builder.Services.AddScoped<IInterviewService, InterviewService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -71,17 +81,18 @@ builder.Services.AddAutoMapper(typeof(AuthMappingProfile).Assembly);
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
-        // Accept enums as strings (e.g. "Seeker", "Employer", "FullTime")
         opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        // Ignore null values in responses to reduce payload size
         opts.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        // Fix for Circular References
+        opts.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SmartJob API", Version = "v1" });
-    
+
+    // 1. ????? ??? ???? ????? ?????? (???????)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -91,6 +102,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer"
     });
 
+    // 2. ????? ??????? ?????? ??? ???? ????????
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -106,6 +118,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // ????? ???? ????? ??? XML ????????? (???????)
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -185,9 +198,9 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-//    // dbContext.Database.EnsureCreated();
-//    // Using migrations instead - Run 'dotnet ef database update' to apply.
-        //dbContext.Database.Migrate();
+    //    // dbContext.Database.EnsureCreated();
+    //    // Using migrations instead - Run 'dotnet ef database update' to apply.
+    //dbContext.Database.Migrate();
 }
 
 
@@ -196,8 +209,7 @@ var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uplo
 Directory.CreateDirectory(Path.Combine(uploadsRoot, "avatars"));
 Directory.CreateDirectory(Path.Combine(uploadsRoot, "resumes"));
 
-app.UseMiddleware<RequestLoggingMiddleware>();
-//app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 
 //if (app.Environment.IsDevelopment())
 //{
@@ -207,14 +219,18 @@ app.UseMiddleware<RequestLoggingMiddleware>();
 //if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 //{
 app.UseSwagger();
-    app.UseSwaggerUI();
-    app.Environment.IsDevelopment();
+app.UseSwaggerUI();
+app.Environment.IsDevelopment();
 //}
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+
+app.UseCors("AllowAll");
 
 //app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRateLimiter();
-app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 

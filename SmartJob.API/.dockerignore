@@ -1,0 +1,8 @@
+bin/
+obj/
+*.db
+.vscode/
+.vs/
+.idea/
+.git/
+wwwroot/uploads/
