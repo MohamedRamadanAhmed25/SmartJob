@@ -63,12 +63,6 @@ builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 
-builder.Services.AddHttpClient("AiServiceClient", client =>
-{
-    var aiBaseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000/";
-    client.BaseAddress = new Uri(aiBaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
 builder.Services.AddScoped<IAiService, AiService>();
 
 builder.Services.AddScoped<IAIMatchService, AIMatchService>();

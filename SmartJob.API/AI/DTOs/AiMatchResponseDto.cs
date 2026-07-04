@@ -15,4 +15,7 @@ public class AiMatchResponseDto
 
     [JsonPropertyName("missing_skills")]
     public List<string> MissingSkills { get; set; } = new();
+
+    [JsonPropertyName("why_match")]
+    public List<string> WhyMatch { get; set; } = new();
 }
